@@ -217,7 +217,7 @@ public class SecureStorage extends CordovaPlugin {
         authSuccessCallback.invoke();
         Log.d(TAG, "invoke called");
       } else {
-        Toast.makeText(this.cordova.getContext(), "Authentication failed.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this.cordova.getActivity(), "Authentication failed.", Toast.LENGTH_SHORT).show();
         authErrorCallback.invoke();
       }
     }
