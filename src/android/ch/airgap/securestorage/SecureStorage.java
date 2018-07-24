@@ -44,7 +44,7 @@ public class SecureStorage extends CordovaPlugin {
     return new Storage(this.cordova.getActivity(), alias, isParanoia);
   }
 
-  public boolean execute(String action, JSONArray data, CallbackContext callbackContext) throws JSONException {
+  public boolean execute(String action, JSONArray data, final CallbackContext callbackContext) throws JSONException {
     try {
 
       if (action.equals("initialize")) {
