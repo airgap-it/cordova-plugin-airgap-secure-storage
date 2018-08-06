@@ -36,13 +36,6 @@ SecureStorage.prototype.secureDevice = function () {
 /**
  *
  */
-SecureStorage.prototype.isParanoia = function () {
-  return this.isParanoia;
-};
-
-/**
- *
- */
 SecureStorage.prototype.init = function () {
   return new Promise((resolve, reject) => {
     return exec(() => {
