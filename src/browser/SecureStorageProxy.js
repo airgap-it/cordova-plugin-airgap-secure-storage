@@ -55,17 +55,12 @@ cordova.define("airgap-secure-storage.SecureStorageProxy", function(require, exp
     success()
   }
 
-  const destroy = function (success, error) {
-    localStorage.clear()
-    success()
-  }
-
   module.exports = {
     initialize: warn(unlock),
     getItem: warn(getItem),
     setItem: warn(setItem),
     removeAll: warn(removeAll),
-    destroy: warn(destroy)
+    destroy: warn(removeAll)
   };
 
   require('cordova/exec/proxy').add('SecureStorage', module.exports)
