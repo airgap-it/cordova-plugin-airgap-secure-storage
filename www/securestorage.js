@@ -1,6 +1,10 @@
 var exec = require('cordova/exec');
 var cordova = require('cordova');
 
+const execSecureStorage = (methodName, args) =>
+  new Promise((resolve, reject) =>
+    exec(resolve, reject, 'SecureStorage', methodName, args));
+
 /**
  *
  * @param {*} alias
@@ -18,73 +22,52 @@ function SecureStorage(alias, isParanoia) {
 /**
  *
  */
-SecureStorage.prototype.isDeviceSecure = function () {
-  return new Promise((resolve, reject) => {
-    return exec(resolve, reject, 'SecureStorage', 'isDeviceSecure', []);
-  });
-};
+SecureStorage.prototype.isDeviceSecure = () => execSecureStorage('isDeviceSecure');
 
 /**
  *
  */
-SecureStorage.prototype.secureDevice = function () {
-  return new Promise((resolve, reject) => {
-    return exec(resolve, reject, 'SecureStorage', 'secureDevice', []);
-  });
-};
+SecureStorage.prototype.secureDevice = () => execSecureStorage('secureDevice');
 
 /**
  *
  */
 SecureStorage.prototype.init = function () {
-  return new Promise((resolve, reject) => {
-    return exec(() => {
-      if (this.isParanoia && cordova.platformId === 'android') {
-        this.setupParanoiaPassword(() => {
-          this.isInitiated = true;
-          resolve();
-        }, reject);
-      } else {
-        this.isInitiated = true;
-        resolve();
-      }
-    }, reject, 'SecureStorage', 'initialize', [this.alias, this.isParanoia]);
-  });
+  return execSecureStorage('initialize', [this.alias, this.isParanoia])
+    .then(() => this.isParanoia && cordova.platformId === 'android' && this.setupParanoiaPassword())
+    .then(() => this.isInitiated = true)
 };
 
 /**
  *
  */
 SecureStorage.prototype.setupParanoiaPassword = function () {
-  return new Promise((resolve, reject) => {
-    this.isInitiated = true;
-    return exec(resolve, reject, 'SecureStorage', 'setupParanoiaPassword', [this.alias, this.isParanoia]);
-  });
+  return execSecureStorage('setupParanoiaPassword', [this.alias, this.isParanoia])
+    .then(() => this.isInitiated = true);
 };
 
 /**
  *
  */
-SecureStorage.prototype.destroy = function () {
-  return new Promise((resolve, reject) => {
-    return exec(resolve, reject, 'SecureStorage', 'destroy');
-  });
-};
+SecureStorage.prototype.destroy = () => execSecureStorage('destroy');
+
+/**
+ *
+ */
+SecureStorage.prototype.ensureInitialized = function () {
+  if (!this.isInitiated) {
+    throw new Error('call initialize() first.');
+  }
+}
 
 /**
  *
  * @param {*} key
  * @param {*} item
- * @param {*} successCallback
- * @param {*} errorCallback
  */
 SecureStorage.prototype.setItem = function (key, item) {
-  return new Promise((resolve, reject) => {
-    if (!this.isInitiated) {
-      return reject('call initialize() first.');
-    }
-    return exec(resolve, reject, 'SecureStorage', 'setItem', [this.alias, this.isParanoia, key, item]);
-  });
+  this.ensureInitialized()
+  return execSecureStorage('setItem', [this.alias, this.isParanoia, key, item]);
 };
 
 /**
@@ -92,12 +75,8 @@ SecureStorage.prototype.setItem = function (key, item) {
  * @param {*} key
  */
 SecureStorage.prototype.getItem = function (key) {
-  return new Promise((resolve, reject) => {
-    if (!this.isInitiated) {
-      return reject('call initialize() first.');
-    }
-    return exec(resolve, reject, 'SecureStorage', 'getItem', [this.alias, this.isParanoia, key]);
-  });
+  this.ensureInitialized()
+  return execSecureStorage('getItem', [this.alias, this.isParanoia, key]);
 };
 
 /**
@@ -105,12 +84,8 @@ SecureStorage.prototype.getItem = function (key) {
  * @param {*} key
  */
 SecureStorage.prototype.removeItem = function (key) {
-  return new Promise((resolve, reject) => {
-    if (!this.isInitiated) {
-      return reject('call initialize() first.');
-    }
-    return exec(resolve, reject, 'SecureStorage', 'removeItem', [this.alias, this.isParanoia, key]);
-  });
+  this.ensureInitialized()
+  return execSecureStorage('removeItem', [this.alias, this.isParanoia, key]);
 };
 
 /**
@@ -118,12 +93,8 @@ SecureStorage.prototype.removeItem = function (key) {
  * @param {*} key
  */
 SecureStorage.prototype.removeAll = function () {
-  return new Promise((resolve, reject) => {
-    if (!this.isInitiated) {
-      return reject('call initialize() first.');
-    }
-    return exec(resolve, reject, 'SecureStorage', 'removeAll', [this.alias]);
-  });
+  this.ensureInitialized()
+  return execSecureStorage('removeAll', [this.alias]);
 };
 
 module.exports = SecureStorage;

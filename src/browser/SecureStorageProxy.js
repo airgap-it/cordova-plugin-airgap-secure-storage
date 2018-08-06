@@ -19,14 +19,11 @@ cordova.define("airgap-secure-storage.SecureStorageProxy", function(require, exp
     const isParanoia = args[1]
     const key = args[2]
 
-    return new Promise((resolve, reject) => {
-      try {
-        const value = JSON.parse(localStorage.getValue(alias + '_' + key))
-        resolve(value)
-      } catch (error) {
-        reject(error)
-      }
-    })
+    try {
+      return Promise.resolve(JSON.parse(localStorage.getValue(alias + '_' + key)))
+    } catch (error) {
+      return Promise.reject(error)
+    }
   }
 
   /**
@@ -36,32 +33,25 @@ cordova.define("airgap-secure-storage.SecureStorageProxy", function(require, exp
    */
   const setItem = function (args) {
     const alias = args[0]
-    const isParanoia = args[1]
     const key = args[2]
     const value = args[3]
 
-    return new Promise((resolve, reject) => {
-      try {
-        localStorage.setItem(alias + '_' + key, value)
-        getItem([alias, isParanoia, key]).then(resolve).catch(reject)
-      } catch (error) {
-        reject(error)
-      }
-    })
+    try {
+      localStorage.setItem(alias + '_' + key, value)
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(error)
+    }
   }
 
   const initialize = function () {
     console.log('initialize is done!')
-    return new Promise((resolve) => {
-      return resolve()
-    })
+    return Promise.resolve()
   }
 
   const removeAll = function () {
-    return new Promise((resolve) => {
-      localStorage.clear()
-      resolve()
-    })
+    localStorage.clear()
+    return Promise.resolve()
   }
 
   module.exports = {
