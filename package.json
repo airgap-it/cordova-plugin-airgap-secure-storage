@@ -1,0 +1,32 @@
+{
+  "name": "cordova-plugin-airgap-secure-storage",
+  "version": "1.0.0",
+  "author": "Papers GmbH <contact@papers.ch> (https://papers.ch)",
+  "cordova": {
+    "id": "cordova-plugin-airgap-secure-storage",
+    "platforms": [
+      "android",
+      "browser",
+      "ios"
+    ]
+  },
+  "description": "AirGap Secure Storage securely encrypts and stores sensitive information and data on your device",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@github.com:airgap-it/cordova-plugin-airgap-secure-storage.git"
+  },
+  "keywords": [
+    "secure",
+    "storage",
+    "airgap",
+    "crypto",
+    "credentials"
+  ]
+}

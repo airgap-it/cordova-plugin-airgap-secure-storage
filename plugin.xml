@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" id="cordova-plugin-airgap-secure-storage" version="1.0.0">
+    
+    <name>AirGap Secure Storage</name>
+    <description></description>
+    <license></license>
+    <keywords></keywords>
+
+    <!-- browser -->
+    <platform name="browser">
+        <js-module src="src/browser/SecureStorageProxy.js" name="SecureStorageProxy">
+            <runs />
+        </js-module>
+    </platform>
+
+    <!-- -->
+    <platform name="ios">
+      <js-module src="www/securestorage.js" name="SecureStorage">
+        <runs/>
+        
+        <!-- window.SecureStorage -->
+        <clobbers target="SecureStorage" />
+
+      </js-module>
+      <config-file target="config.xml" parent="/*">
+        <feature name="SecureStorage">
+          <param name="ios-package" value="SecureStoragePlugin" />
+        </feature>
+      </config-file>
+      <source-file src="src/ios/SecureStoragePlugin.swift" />
+      <source-file src="src/ios/SecureStorage.swift" />
+    </platform>
+
+    <!-- android -->
+    <platform name="android">
+      <js-module src="www/securestorage.js" name="SecureStorage">
+        <runs/>
+        
+        <!-- window.SecureStorage -->
+        <clobbers target="SecureStorage" />
+
+      </js-module>
+
+      <config-file target="res/xml/config.xml" parent="/*">
+        <feature name="SecureStorage">
+          <param name="android-package" value="ch.airgap.securestorage.SecureStorage" />
+          <param name="onload" value="true" />
+        </feature>
+      </config-file>
+
+      <config-file parent="/*" target="AndroidManifest.xml"/>
+
+      <framework custom="true" src="src/android/secure-storage.gradle" type="gradleReference"/>
+      <resource-file src="androidlibs/ch-papers-securestorage.aar" target="libs/ch-papers-securestorage.aar"/>
+      <resource-file src="src/android/build-extras.gradle" target="build-extras.gradle"/>
+      <source-file src="src/android/ch/airgap/securestorage/SecureStorage.java" target-dir="src/ch/airgap/securestorage/" />
+    </platform>
+
+    <platform name="ios">
+        <config-file parent="/*" target="config.xml">
+            <feature name="SecureStorage">
+                <param name="ios-package" value="SecureStorage"/>
+            </feature>
+        </config-file>
+        <source-file src="src/ios/SecureStorage.swift"/>
+        <source-file src="src/ios/SecureStoragePlugin.swift"/>
+    </platform>
+</plugin>

@@ -1,0 +1,10 @@
+.gradle
+.idea
+build
+gradle/
+gradle_bat
+gradlew
+gradle.properties
+proxystore
+*.iml
+local.properties

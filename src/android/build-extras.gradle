@@ -1,0 +1,27 @@
+ext.kotlin_version = '1.1.4-3'
+
+ext.postBuildExtras = {
+    
+    android {
+       defaultConfig {
+            minSdkVersion 23
+            targetSdkVersion 26
+       }
+
+       packagingOptions {
+           exclude 'META-INF/NOTICE'
+           exclude 'META-INF/LICENSE'
+       }
+    }
+
+    dependencies {
+        compile "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+    }
+
+    buildscript {
+        dependencies {
+            classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        }
+    }
+
+}

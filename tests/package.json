@@ -1,0 +1,13 @@
+{
+  "name": "airgap-cordova-secure-storage-tests",
+  "version": "1.0.0",
+  "description": "",
+  "cordova": {
+    "id": "airgap-cordova-secure-storage-tests",
+    "platforms": []
+  },
+  "keywords": [
+    "ecosystem:cordova"
+  ],
+  "author": ""
+}

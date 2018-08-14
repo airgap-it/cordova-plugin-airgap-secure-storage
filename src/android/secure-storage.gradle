@@ -1,0 +1,21 @@
+repositories {
+  jcenter()
+  flatDir {
+      dirs 'src/main/libs'
+   }
+}
+
+dependencies {
+   compile 'org.jetbrains.kotlin:kotlin-stdlib-jre7:1.1.4-3'
+   compile 'com.android.support.constraint:constraint-layout:1.0.2'
+   compile 'com.android.support:appcompat-v7:26.1.0'
+   compile 'com.android.support:design:26.1.0'
+   compile(name:'ch-papers-securestorage', ext:'aar')
+}
+
+android {
+  packagingOptions {
+    exclude 'META-INF/NOTICE'
+    exclude 'META-INF/LICENSE'
+  }
+}

@@ -1,0 +1,20 @@
+stages:
+  - build
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+
+build:
+  stage: build
+  only:
+    - master
+  script:
+    - docker build -t $IMAGE_TAG .
+    - docker run --name $CI_PIPELINE_ID $IMAGE_TAG echo "container ran."
+    - docker cp $CI_PIPELINE_ID:/code/app/build/outputs/aar/app-debug.aar app-debug.aar
+  tags:
+    - docker
+  artifacts:
+    paths:
+    - app-debug.aar
+
