@@ -21,15 +21,13 @@ In order to use Face ID, this plugins requires the following usage description:
 
 * `NSFaceIDUsageDescription` describes the reason why the app needs access to the secure storage. 
 
- To add this entry into the `info.plist`, you can use the `edit-config` tag in the `config.xml` like this:
+To add this entry into the `info.plist`, you can use the `edit-config` tag in the `config.xml` like this:
 
 ```
 <edit-config target="NSFaceIDUsageDescription" file="*-Info.plist" mode="merge">
     <string>Face ID is needed to save your keys to the secure storage.</string>
 </edit-config>
 ```
-
-
 
 ## Pre-Requisites Android / iOS
 To work, SecureStorage requires a secure lock-screen setup, either secured by a PIN / Pattern or Fingerprint. Otherwise, the keystore cannot be used to safely store data.
