@@ -2,36 +2,48 @@ package ch.papers.securestorage
 
 import android.app.Activity
 import android.content.Context
+import android.content.DialogInterface
+import android.os.Build
+import android.security.KeyPairGeneratorSpec
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import android.util.Log
-import java.io.*
-import java.nio.ByteBuffer
-import java.nio.charset.Charset
-import javax.crypto.spec.IvParameterSpec
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
-import android.content.DialogInterface
 import android.support.v7.app.AlertDialog
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.widget.EditText
+import java.io.*
+import java.math.BigInteger
+import java.nio.ByteBuffer
+import java.nio.charset.Charset
 import java.security.*
+import java.util.*
 import javax.crypto.*
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.SecretKeySpec
+import javax.security.auth.x500.X500Principal
 
 /**
  * Created by Dominik on 19.01.2018.
  */
 class Storage(private val context: Context, private val storageAlias: String, private var isParanoia: Boolean = false) {
 
-    private val keyStore = KeyStore.getInstance(Constants.ANDROID_KEY_STORE)
-    private var masterKey: Key? = null
+    private val keyStore = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+        KeyStore.getInstance(Constants.ANDROID_KEY_STORE)
+    } else {
+        KeyStore.getInstance(KeyStore.getDefaultType())
+    }
+
     private val baseDir = File(context.getDir(Constants.BASE_FILE_PATH, Context.MODE_PRIVATE), storageAlias)
     private val salt = ByteArray(Constants.KEY_SIZE / 8)
 
     init {
         baseDir.mkdirs()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            this.isParanoia = true
+        }
 
         val keyStoreAlias = generateKeyStoreAlias(storageAlias)
 
@@ -45,14 +57,6 @@ class Storage(private val context: Context, private val storageAlias: String, pr
             Log.d("SecureStorage", "Alias unknown, generating key...")
             generateKey(keyStoreAlias)
             Log.d("SecureStorage", "Alias unknown, key generated!")
-        }
-
-        // now, fetch the generated key
-        try {
-            masterKey = keyStore.getKey(keyStoreAlias, null) as SecretKey
-        } catch (e: UnrecoverableKeyException) {
-            generateKey(keyStoreAlias)
-            Log.d("SecureStorage", "couldnt recover key, deleted it...")
         }
 
         baseDir.mkdirs()
@@ -73,7 +77,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
     }
 
     fun readString(fileKey: String, success: (String) -> Unit, error: (error: Exception) -> Unit, requestAuthentication: (() -> Unit) -> Unit) {
-        val secureFileStorage = SecureFileStorage(masterKey, salt, baseDir)
+        val secureFileStorage = SecureFileStorage(this.getMasterKey(Cipher.DECRYPT_MODE), salt, baseDir)
 
         val successCb: (InputStream) -> Unit = { inputStream ->
             val fileValue = inputStream.readTextAndClose()
@@ -81,13 +85,15 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         }
 
         if (isParanoia) {
-            showParanoiaAlert(success = { secret ->
-                try {
-                    val digest = retrieveParanoiaSecret(secret)
-                    secureFileStorage.read(fileKey = fileKey, secret = digest, success = successCb, error = error, requestAuthentication = requestAuthentication)
-                } catch (e: BadPaddingException) {
-                    error(Exception("wrong secret"))
-                }
+            this.setupParanoiaPassword(success = {
+                showParanoiaAlert(success = { secret ->
+                    try {
+                        val digest = retrieveParanoiaSecret(secret)
+                        secureFileStorage.read(fileKey = fileKey, secret = digest, success = successCb, error = error, requestAuthentication = requestAuthentication)
+                    } catch (e: BadPaddingException) {
+                        error(Exception("wrong secret"))
+                    }
+                }, error = error)
             }, error = error)
         } else {
             secureFileStorage.read(fileKey = fileKey, success = successCb, error = error, requestAuthentication = requestAuthentication)
@@ -112,6 +118,28 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         val dialog = builder.create()
 
         dialog.show()
+    }
+
+    private fun getMasterKey(mode: Int): Key? {
+        // now, fetch the generated key
+        var masterKey: Key? = null
+        val keyStoreAlias = generateKeyStoreAlias(storageAlias)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                masterKey = keyStore.getKey(keyStoreAlias, null) as SecretKey
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                val keyEntry = keyStore.getEntry(keyStoreAlias, null) as KeyStore.PrivateKeyEntry
+                if (mode == Cipher.DECRYPT_MODE) {
+                    masterKey = keyEntry.privateKey
+                } else if (mode == Cipher.ENCRYPT_MODE) {
+                    masterKey = keyEntry.certificate.publicKey
+                }
+            }
+        } catch (e: UnrecoverableKeyException) {
+            generateKey(keyStoreAlias)
+            Log.d("SecureStorage", "couldnt recover key, deleted it...")
+        }
+        return masterKey
     }
 
     private fun showParanoiaSetupAlert(success: (String) -> Unit, error: (error: Exception) -> Unit) {
@@ -165,7 +193,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
     }
 
     fun writeString(fileKey: String, fileData: String, success: () -> Unit, error: (error: Exception) -> Unit, requestAuthentication: (() -> Unit) -> Unit) {
-        val secureFileStorage = SecureFileStorage(masterKey, salt, baseDir)
+        val secureFileStorage = SecureFileStorage(this.getMasterKey(Cipher.ENCRYPT_MODE), salt, baseDir)
 
         val successCb: (OutputStream) -> Unit = { outputStream ->
             outputStream.write(fileData.toByteArray())
@@ -175,13 +203,15 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         }
 
         if (isParanoia) {
-            showParanoiaAlert(success = { secret ->
-                try {
-                    val digest = retrieveParanoiaSecret(secret)
-                    secureFileStorage.write(fileKey = fileKey, secret = digest, success = successCb, error = error, requestAuthentication = requestAuthentication)
-                } catch (e: BadPaddingException) {
-                    error(Exception("wrong secret"))
-                }
+            this.setupParanoiaPassword(success = {
+                showParanoiaAlert(success = { secret ->
+                    try {
+                        val digest = retrieveParanoiaSecret(secret)
+                        secureFileStorage.write(fileKey = fileKey, secret = digest, success = successCb, error = error, requestAuthentication = requestAuthentication)
+                    } catch (e: BadPaddingException) {
+                        error(Exception("wrong secret"))
+                    }
+                }, error = error)
             }, error = error)
         } else {
             secureFileStorage.write(fileKey = fileKey, success = successCb, error = error, requestAuthentication = requestAuthentication)
@@ -189,7 +219,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
     }
 
     fun removeString(fileKey: String, success: () -> Unit, error: (error: Exception) -> Unit) {
-        val secureFileStorage = SecureFileStorage(masterKey, salt, baseDir)
+        val secureFileStorage = SecureFileStorage(this.getMasterKey(Cipher.DECRYPT_MODE), salt, baseDir)
         secureFileStorage.remove(fileKey = fileKey, success = success, error = error)
     }
 
@@ -205,18 +235,30 @@ class Storage(private val context: Context, private val storageAlias: String, pr
     }
 
     private fun generateKey(alias: String) {
-        val keyBuilder = KeyGenParameterSpec.Builder(alias,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setDigests(KeyProperties.DIGEST_SHA512)
-                .setUserAuthenticationRequired(true)
-                .setUserAuthenticationValidityDurationSeconds(15) // TODO: should this be a parameter for users to choose?
-                .setRandomizedEncryptionRequired(true)
-                .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val keyBuilder = KeyGenParameterSpec.Builder(alias,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setDigests(KeyProperties.DIGEST_SHA512)
+                    .setUserAuthenticationRequired(true)
+                    .setUserAuthenticationValidityDurationSeconds(15) // TODO: should this be a parameter for users to choose?
+                    .setRandomizedEncryptionRequired(true)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, Constants.ANDROID_KEY_STORE)
+            keyGenerator.init(keyBuilder.build())
+            keyGenerator.generateKey()
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            val spec = KeyPairGeneratorSpec.Builder(context).setAlias(alias).setSubject(
+                    X500Principal(String.format("CN=%s, OU=%s", alias,
+                            this.context.getPackageName())))
+                    .setSerialNumber(BigInteger.ONE).setStartDate(Calendar.getInstance().getTime())
+                    .setEndDate(Calendar.getInstance().getTime()).build()
+            val keyGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, Constants.ANDROID_KEY_STORE)
+            keyGenerator.initialize(spec)
+            keyGenerator.generateKeyPair()
+        }
 
-        val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, Constants.ANDROID_KEY_STORE)
-        keyGenerator.init(keyBuilder.build())
-        keyGenerator.generateKey()
+
     }
 
     private fun generateParanoiaKey(passphraseOrPin: String) {
@@ -287,7 +329,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         return derivationDigest.digest()
     }
 
-    fun readStreamToBuffer(inputStream: InputStream, buffer: ByteArray):Int {
+    fun readStreamToBuffer(inputStream: InputStream, buffer: ByteArray): Int {
         var readByteCount = 0
         var totalByteCount = 0
         while (readByteCount != -1 && buffer.size > totalByteCount) {
@@ -316,7 +358,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         /**
          * Removes all stored items in a specific alias
          */
-        fun removeAll(activity: Activity, alias: String) : Boolean {
+        fun removeAll(activity: Activity, alias: String): Boolean {
             val baseDir = File(activity.getDir(Constants.BASE_FILE_PATH, Context.MODE_PRIVATE), alias)
 
             if (!baseDir.exists()) {
@@ -334,14 +376,18 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         /**
          * Destroys all storage and associated keys
          */
-        fun destroy(activity: Activity) : Boolean {
+        fun destroy(activity: Activity): Boolean {
             val baseDir = activity.getDir(Constants.BASE_FILE_PATH, Context.MODE_PRIVATE)
 
             for (file in baseDir.listFiles()) {
                 removeAll(activity, file.name)
             }
 
-            val keyStore = KeyStore.getInstance(Constants.ANDROID_KEY_STORE)
+            val keyStore = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                KeyStore.getInstance(Constants.ANDROID_KEY_STORE)
+            } else {
+                KeyStore.getInstance(KeyStore.getDefaultType())
+            }
             keyStore.load(null)
 
             for (alias in keyStore.aliases()) {

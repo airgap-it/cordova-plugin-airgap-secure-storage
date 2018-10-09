@@ -1,11 +1,10 @@
 package ch.papers.securestorage
 
+import android.os.Build
 import android.security.keystore.UserNotAuthenticatedException
-import android.util.Log
 import java.io.*
 import java.security.Key
 import java.security.MessageDigest
-import javax.crypto.BadPaddingException
 import javax.crypto.Cipher
 import javax.crypto.CipherInputStream
 import javax.crypto.CipherOutputStream
@@ -21,15 +20,28 @@ class SecureFileStorage(private val masterSecret: Key?, private val salt: ByteAr
     fun read(fileKey: String, secret: ByteArray = "".toByteArray(), success: (InputStream) -> Unit, error: (error: Exception) -> Unit, requestAuthentication: (() -> Unit) -> Unit) {
         thread {
             try {
-                val iv = ByteArray(16)
-
                 val fileInputStream = FileInputStream(fileForHashedKey(hashForKey(fileKey)))
-                fileInputStream.read(iv)
 
-                val fsCipher = Cipher.getInstance(Constants.FILESYSTEM_CIPHER_ALGORITHM)
-                fsCipher.init(Cipher.DECRYPT_MODE, masterSecret, IvParameterSpec(iv))
+                val fsCipherInputStream = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                    val fsCipher =
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                val iv = ByteArray(16)
+                                fileInputStream.read(iv)
 
-                val fsCipherInputStream = CipherInputStream(fileInputStream, fsCipher)
+                                val fsCipher = Cipher.getInstance(Constants.FILESYSTEM_CIPHER_ALGORITHM)
+                                fsCipher.init(Cipher.DECRYPT_MODE, masterSecret, IvParameterSpec(iv))
+                                fsCipher
+                            } else {
+                                val fsCipher = Cipher.getInstance(Constants.FILESYSTEM_FALLBACK_CIPHER_ALGORITHM)
+                                fsCipher.init(Cipher.DECRYPT_MODE, masterSecret)
+                                fsCipher
+                            }
+
+                    CipherInputStream(fileInputStream, fsCipher)
+                } else {
+                    fileInputStream
+                }
+
                 val encryptionSecret = encryptionSecret(secret, hashForKey(fileKey))
 
                 val specificSecretKey = SecretKeySpec(encryptionSecret, 0, encryptionSecret.size, "AES")
@@ -40,12 +52,18 @@ class SecureFileStorage(private val masterSecret: Key?, private val salt: ByteAr
                 val secretCipherInputStream = CipherInputStream(fsCipherInputStream, specificSecretCipher)
 
                 success(secretCipherInputStream)
-            } catch (e: UserNotAuthenticatedException) {
-                requestAuthentication({
-                    read(fileKey, secret, success, error, requestAuthentication)
-                })
             } catch (e: Exception) {
-                error(e)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (e is UserNotAuthenticatedException) {
+                        requestAuthentication({
+                            read(fileKey, secret, success, error, requestAuthentication)
+                        })
+                    } else {
+                        error(e)
+                    }
+                } else {
+                    error(e)
+                }
             }
         }
     }
@@ -53,9 +71,6 @@ class SecureFileStorage(private val masterSecret: Key?, private val salt: ByteAr
     fun write(fileKey: String, secret: ByteArray = "".toByteArray(), success: (OutputStream) -> Unit, error: (error: Exception) -> Unit, requestAuthentication: (() -> Unit) -> Unit) {
         thread {
             try {
-                val fsCipher = Cipher.getInstance(Constants.FILESYSTEM_CIPHER_ALGORITHM)
-                fsCipher.init(Cipher.ENCRYPT_MODE, masterSecret)
-
                 val file = fileForHashedKey(hashForKey(fileKey))
 
                 if (!file.exists()) {
@@ -63,9 +78,22 @@ class SecureFileStorage(private val masterSecret: Key?, private val salt: ByteAr
                 }
 
                 val fileOutputStream = FileOutputStream(file)
-                fileOutputStream.write(fsCipher.iv)
 
-                val fsCipherOutputStream = CipherOutputStream(fileOutputStream, fsCipher)
+                val fsCipherOutputStream = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                    val fsCipher =
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                Cipher.getInstance(Constants.FILESYSTEM_CIPHER_ALGORITHM)
+                            } else {
+                                Cipher.getInstance(Constants.FILESYSTEM_FALLBACK_CIPHER_ALGORITHM)
+                            }
+                    fsCipher.init(Cipher.ENCRYPT_MODE, masterSecret)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        fileOutputStream.write(fsCipher.iv)
+                    }
+                    CipherOutputStream(fileOutputStream, fsCipher)
+                } else {
+                    fileOutputStream
+                }
 
                 val encryptionSecret = encryptionSecret(secret, hashForKey(fileKey))
 
@@ -77,12 +105,18 @@ class SecureFileStorage(private val masterSecret: Key?, private val salt: ByteAr
                 val secretCipherOutputStream = CipherOutputStream(fsCipherOutputStream, specificSecretCipher)
 
                 success(secretCipherOutputStream)
-            } catch (e: UserNotAuthenticatedException) {
-                requestAuthentication({
-                    write(fileKey, secret, success, error, requestAuthentication)
-                })
             } catch (e: Exception) {
-                error(e)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (e is UserNotAuthenticatedException) {
+                        requestAuthentication({
+                            write(fileKey, secret, success, error, requestAuthentication)
+                        })
+                    } else {
+                        error(e)
+                    }
+                } else {
+                    error(e)
+                }
             }
         }
     }

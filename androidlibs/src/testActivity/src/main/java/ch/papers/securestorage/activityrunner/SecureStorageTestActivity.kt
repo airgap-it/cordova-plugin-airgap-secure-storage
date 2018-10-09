@@ -4,8 +4,9 @@ import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
-import android.support.v7.app.AppCompatActivity
+import android.os.Build
 import android.os.Bundle
+import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -15,7 +16,7 @@ class SecureStorageTestActivity : AppCompatActivity() {
 
     private lateinit var mKeyguardManager: KeyguardManager
     private val REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS = 1
-    private lateinit var secureStorage: Storage
+    private var secureStorage: Storage? = null
 
     private var authSuccessCallback: () -> Unit = {}
     private var authErrorCallback: () -> Unit = {}
@@ -34,9 +35,11 @@ class SecureStorageTestActivity : AppCompatActivity() {
     private fun showAuthenticationScreen() {
         // Create the Confirm Credentials screen. You can customize the title and description. Or
         // we will provide a generic one for you if you leave it null
-        val intent = mKeyguardManager.createConfirmDeviceCredentialIntent(null, null)
-        if (intent != null) {
-            startActivityForResult(intent, REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS)
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+             val intent =mKeyguardManager.createConfirmDeviceCredentialIntent(null, null)
+             if (intent != null) {
+                startActivityForResult(intent, REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS)
+             }
         }
     }
 
@@ -50,7 +53,7 @@ class SecureStorageTestActivity : AppCompatActivity() {
 
     fun setupParanoiaStorage(v: View) {
         secureStorage = Storage(this, "paranoia-storage", true)
-        secureStorage.setupParanoiaPassword(success = {
+        secureStorage?.setupParanoiaPassword(success = {
             Log.d("SecureStorageActivity", "Paranoia Setup successful")
         }, error = {
             Log.d("SecureStorageActivity", "Paranoia Setup failed")
@@ -63,7 +66,7 @@ class SecureStorageTestActivity : AppCompatActivity() {
         }
 
         val error: (Exception) -> Unit = {
-            Log.d("SecureStorageActivity", "Data could not be written")
+            Log.d("SecureStorageActivity", "Data could not be written:"+it)
         }
 
         val requestAuthentication: (() -> Unit) -> Unit = { success ->
@@ -73,7 +76,7 @@ class SecureStorageTestActivity : AppCompatActivity() {
             showAuthenticationScreen()
         }
 
-        secureStorage.writeString("testFile", "testData", success = success, error = error, requestAuthentication = requestAuthentication)
+        secureStorage?.writeString("testFile", "testData", success = success, error = error, requestAuthentication = requestAuthentication)
     }
 
     fun removeString(v: View) {
@@ -85,7 +88,7 @@ class SecureStorageTestActivity : AppCompatActivity() {
             Log.d("SecureStorageActivity", "Data could not be deleted")
         }
 
-        secureStorage.removeString("testFile", success = success, error = error)
+        secureStorage?.removeString("testFile", success = success, error = error)
     }
 
     fun destroy(v: View) {
@@ -108,10 +111,10 @@ class SecureStorageTestActivity : AppCompatActivity() {
             showAuthenticationScreen()
         }
 
-        secureStorage.readString("testFile", success = success, error = error, requestAuthentication = requestAuthentication)
+        secureStorage?.readString("testFile", success = success, error = error, requestAuthentication = requestAuthentication)
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS) {
             if (resultCode == Activity.RESULT_OK) {
                 authSuccessCallback()
