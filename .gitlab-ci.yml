@@ -1,0 +1,46 @@
+image: docker:latest
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE
+  IMAGE_TAG_CURRENT: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+
+stages:
+  - build
+#  - test
+  - publish
+
+build:
+  stage: build
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - docker build -t $IMAGE_TAG .
+    - docker tag $IMAGE_TAG $IMAGE_TAG_CURRENT
+    - docker push $IMAGE_TAG_CURRENT
+  tags:
+    - docker
+
+#unit:
+#  stage: test
+#  before_script:
+#    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+#  script:
+#    - docker run --name unit-$CI_COMMIT_SHA $IMAGE_TAG_CURRENT npm run test
+#  after_script:
+#    - docker rm unit-$CI_COMMIT_SHA
+#  tags:
+#    - docker
+
+publish:
+  stage: publish
+  only:
+    - master
+  when: manual
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - docker run --env NPM_AUTH_TOKEN --env VERSION --name unit-$CI_COMMIT_SHA $IMAGE_TAG_CURRENT ./npm-ci-publish.sh
+  after_script:
+    - docker rm unit-$CI_COMMIT_SHA
+  tags:
+    - docker
