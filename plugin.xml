@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" id="cordova-plugin-airgap-secure-storage" version="1.0.0">
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" id="cordova-plugin-airgap-secure-storage" version="0.0.0">
     
     <name>AirGap Secure Storage</name>
-    <description></description>
-    <license></license>
-    <keywords></keywords>
+    <description>AirGap Secure Storage securely encrypts and stores sensitive information and data on your device</description>
+    <keywords>secure,storage,airgap,crypto,credentials</keywords>
+    <repo>https://github.com/airgap-it/cordova-plugin-airgap-secure-storage.git</repo>
 
     <!-- browser -->
     <platform name="browser">
