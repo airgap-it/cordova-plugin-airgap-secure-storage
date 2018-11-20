@@ -4,16 +4,14 @@
 Install the plugin simply using npm:
 
 ```
-npm install git+ssh://git@github.com:airgap-it/cordova-plugin-airgap-secure-storage.git#master --save
+npm install cordova-plugin-airgap-secure-storage --save
 ```
 
 Make sure the plugin is added in your cordova `config.xml` as follows:
 
 ```
-<plugin name="cordova-plugin-airgap-secure-storage" spec="git+ssh://git@github.com:airgap-it/cordova-plugin-airgap-secure-storage.git#master" />
+<plugin name="cordova-plugin-airgap-secure-storage" spec="0.1.5" />
 ```
-
-Instead of `#master` you can also pass a specific commit-hash to fix the version you would like to install.
 
 ### iOS
 
