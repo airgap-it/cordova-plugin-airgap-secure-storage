@@ -28,7 +28,9 @@ class SecureStorageTestActivity : AppCompatActivity() {
         mKeyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager;
 
         if (!mKeyguardManager.isKeyguardSecure()) {
-            Toast.makeText(this, "Secure Lock hasn't been set up", Toast.LENGTH_LONG).show()
+            runOnUiThread {
+                Toast.makeText(applicationContext, "Secure Lock hasn't been set up", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -43,30 +45,38 @@ class SecureStorageTestActivity : AppCompatActivity() {
         }
     }
 
-    private fun showParanoiaPasswordInput() {
-        Log.d("SecureStorageActivity", "Asking for Paranoia-Password")
-    }
-
     fun setupNormalStorage(v: View) {
-        secureStorage = Storage(this, "normal-storage")
+        secureStorage = Storage(this@SecureStorageTestActivity, "normal-storage")
     }
 
     fun setupParanoiaStorage(v: View) {
-        secureStorage = Storage(this, "paranoia-storage", true)
+        secureStorage = Storage(this@SecureStorageTestActivity, "paranoia-storage", true)
         secureStorage?.setupParanoiaPassword(success = {
             Log.d("SecureStorageActivity", "Paranoia Setup successful")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Paranoia Setup successful", Toast.LENGTH_SHORT).show()
+            }
         }, error = {
             Log.d("SecureStorageActivity", "Paranoia Setup failed")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Paranoia Setup failed", Toast.LENGTH_SHORT).show()
+            }
         })
     }
 
     fun storeString(v: View) {
         val success: () -> Unit = {
             Log.d("SecureStorageActivity", "Data written!")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Data written!", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val error: (Exception) -> Unit = {
-            Log.d("SecureStorageActivity", "Data could not be written:"+it)
+            Log.d("SecureStorageActivity", "Data could not be written: $it")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Data could not be written: $it", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val requestAuthentication: (() -> Unit) -> Unit = { success ->
@@ -82,26 +92,38 @@ class SecureStorageTestActivity : AppCompatActivity() {
     fun removeString(v: View) {
         val success: () -> Unit = {
             Log.d("SecureStorageActivity", "Data deleted")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Data deleted!", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val error: (Exception) -> Unit = {
             Log.d("SecureStorageActivity", "Data could not be deleted")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Data could not be deleted", Toast.LENGTH_SHORT).show()
+            }
         }
 
         secureStorage?.removeString("testFile", success = success, error = error)
     }
 
     fun destroy(v: View) {
-        Storage.destroy(this)
+        Storage.destroy(this@SecureStorageTestActivity)
     }
 
     fun readString(v: View) {
         val success: (String) -> Unit =  { s ->
-            Log.d("SecureStorageActivity", "Data read: " + s)
+            Log.d("SecureStorageActivity", "Data read: $s")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Data read: $s", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val error: (Exception) -> Unit = {
             Log.d("SecureStorageActivity", "Data could not be read")
+            runOnUiThread {
+                Toast.makeText(this@SecureStorageTestActivity, "Data could not be read", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val requestAuthentication: (() -> Unit) -> Unit = { success ->
@@ -119,7 +141,9 @@ class SecureStorageTestActivity : AppCompatActivity() {
             if (resultCode == Activity.RESULT_OK) {
                 authSuccessCallback()
             } else {
-                Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show()
+                runOnUiThread {
+                    Toast.makeText(this@SecureStorageTestActivity, "Authentication failed.", Toast.LENGTH_SHORT).show()
+                }
                 authErrorCallback()
             }
         }

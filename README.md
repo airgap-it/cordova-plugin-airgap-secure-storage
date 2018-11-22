@@ -30,11 +30,20 @@ To add this entry into the `info.plist`, you can use the `edit-config` tag in th
 ## Pre-Requisites Android / iOS
 To work, SecureStorage requires a secure lock-screen setup, either secured by a PIN / Pattern or Fingerprint. Otherwise, the keystore cannot be used to safely store data.
 
+### Android Version Support
+Versions below Android 4.3 (API Version 18) are not supported by this plugin.
+
+| Version        | Fingerprint / Biometric           | Paranoia Mode (additional Encryption)  | Lockscreen Setup (PIN) | 
+| ------------- |-------------:| -----:| -----:|
+| >= Android 6.0 M (23)      | ✅ | Optional | Required |
+| >= Android 4.3 (18)      | ❌ |   Required | Required |
+
+
 ## Usage
 The plugin provides a global variable as any cordova plugin does, to create a new instance call it as follows:
 
 ```
-let secureStorage = new window.SecureStorage("secure-storage-alias", false)
+const secureStorage = new window.SecureStorage("secure-storage-alias", false)
 ```
 
 You need to init() the SecureStorage instance in order to set it up properly if necessary.

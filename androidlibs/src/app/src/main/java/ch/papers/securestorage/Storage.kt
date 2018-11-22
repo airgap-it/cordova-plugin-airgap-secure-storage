@@ -41,7 +41,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
 
     init {
         baseDir.mkdirs()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             this.isParanoia = true
         }
 
@@ -110,7 +110,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         val editText = editView.findViewById<EditText>(R.id.password)
 
         builder.setView(editView)
-        builder.setPositiveButton(R.string.paranoia_input_alert_positive_button, DialogInterface.OnClickListener { dialog, id ->
+        builder.setPositiveButton(R.string.paranoia_input_alert_unlock_button, DialogInterface.OnClickListener { dialog, id ->
             success(editText.text.toString())
             dialog.dismiss()
         })
