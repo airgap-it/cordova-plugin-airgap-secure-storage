@@ -97,17 +97,18 @@ class SecureStorage{
         let queryParameters: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                               kSecAttrAccount as String: key]
         
-        let keyChainAttributes: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                         kSecAttrAccount as String: key,
-                                         kSecValueData as String: encryptedData]
+        let addKeyChainAttributes: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                                 kSecAttrAccount as String: key,
+                                                 kSecValueData as String: encryptedData]
         
-        var status = SecItemUpdate(queryParameters as CFDictionary, keyChainAttributes as CFDictionary)
-        if status != errSecSuccess {
-            status = SecItemAdd(keyChainAttributes as CFDictionary, nil)
+        var status = SecItemAdd(addKeyChainAttributes as CFDictionary, nil)
+        if status == errSecDuplicateItem {
+            let updateKeyChainAttributes: [String: Any] = [kSecValueData as String: encryptedData]
+            status = SecItemUpdate(queryParameters as CFDictionary, updateKeyChainAttributes as CFDictionary)
         }
         
         guard status == errSecSuccess || status == errSecItemNotFound else {
-                return false
+            return false
         }
         
         return true
