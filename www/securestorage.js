@@ -48,17 +48,17 @@ SecureStorage.prototype.isParanoia = function (successCallback, errorCallback) {
  * @param {*} errorCallback 
  */
 SecureStorage.prototype.init = function (successCallback, errorCallback) {
-    exec(() => {
+    exec(function(){
         if (this.isParanoia && cordova.platformId === 'android') {
-            this.setupParanoiaPassword(() => {
+            this.setupParanoiaPassword(function() {
                 this.isInitiated = true
                 successCallback()
-            }, errorCallback)
+            }.bind(this), errorCallback)
         } else {
             this.isInitiated = true
             successCallback()
         }
-    }, errorCallback, "SecureStorage", "initialize", [this.alias, this.isParanoia]);
+    }.bind(this), errorCallback, "SecureStorage", "initialize", [this.alias, this.isParanoia]);
 }
 
 /**
