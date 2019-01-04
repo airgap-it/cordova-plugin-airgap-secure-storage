@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-airgap-secure-storage",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "author": "Papers GmbH <contact@papers.ch> (https://papers.ch)",
   "cordova": {
     "id": "cordova-plugin-airgap-secure-storage",
