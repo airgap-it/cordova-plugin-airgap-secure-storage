@@ -9,145 +9,157 @@
 import Foundation
 import Security
 
-class SecureStorage{
+class SecureStorage {
+
     let tag: Data
     let accessControlFlags: SecAccessControlCreateFlags
+	private var secretKeyQuery: [String: Any] {
+		return [
+			kSecClass as String: kSecClassKey,
+			kSecAttrApplicationTag as String: tag,
+			kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+			kSecReturnRef as String: true
+		]
+	}
     
     init(tag: Data, paranoiaMode: Bool = false){
         self.tag = tag
-        if(paranoiaMode){
-            self.accessControlFlags = [ .privateKeyUsage, .userPresence, .applicationPassword ]
+        if (paranoiaMode){
+            accessControlFlags = [.privateKeyUsage, .userPresence, .applicationPassword]
         } else {
-            self.accessControlFlags = [ .privateKeyUsage, .userPresence ]
+            accessControlFlags = [.privateKeyUsage, .userPresence]
         }
     }
-    
-    private func getSecretKeyQuery() ->  [String: Any]{
-        return [kSecClass as String: kSecClassKey,
-                kSecAttrApplicationTag as String: self.tag,
-                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-                kSecReturnRef as String: true]
-    }
-    
-    private func generateNewBiometricSecuredKey(error: UnsafeMutablePointer<Unmanaged<CFError>?>?) -> SecKey? {
-        guard let access = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
-                                                           kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-                                                           self.accessControlFlags,
-                                                           error) else {
-                                                            return nil;
+
+    private func generateNewBiometricSecuredKey() throws -> SecKey {
+		var error: Unmanaged<CFError>? = nil
+        guard let access = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, accessControlFlags, &error) else {
+			throw Error(error: error?.autorelease().takeUnretainedValue())
         }
         
         let attributes: [String: Any] = [
-            kSecAttrKeyType as String:            kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits as String:      256,
-            kSecAttrTokenID as String:            kSecAttrTokenIDSecureEnclave,
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits as String: 256,
+            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
             kSecPrivateKeyAttrs as String: [
-                kSecAttrIsPermanent as String:      true,
-                kSecAttrApplicationTag as String:   self.tag,
-                kSecAttrAccessControl as String:    access
+                kSecAttrIsPermanent as String: true,
+                kSecAttrApplicationTag as String: tag,
+                kSecAttrAccessControl as String: access
             ]
         ]
         
-        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, error) else {
-            return nil
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+            throw Error(error: error?.autorelease().takeUnretainedValue())
         }
         
         return privateKey
     }
-    
-    func getOrCreateBiometricSecuredKey(error: UnsafeMutablePointer<Unmanaged<CFError>?>?) -> SecKey? {
+
+    private func getOrCreateBiometricSecuredKey() throws -> SecKey {
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(self.getSecretKeyQuery() as CFDictionary, &item)
-        
-        if status == errSecSuccess {
-            return item as! SecKey
-        } else {
-            return self.generateNewBiometricSecuredKey(error: error)
-        }
+        let status = SecItemCopyMatching(secretKeyQuery as CFDictionary, &item)
+		guard status == errSecSuccess else {
+			return try generateNewBiometricSecuredKey()
+		}
+        return (item as! SecKey)
     }
     
     func dropSecuredKey() -> Bool {
-        let status = SecItemDelete(self.getSecretKeyQuery() as CFDictionary)
+        let status = SecItemDelete(secretKeyQuery as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { return false }
         return true
     }
-    
-    func store(key: String, value: String, error: UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Bool {
-        guard let secretKey = self.getOrCreateBiometricSecuredKey(error: error) else {
-            return false
-        }
+
+    func store(key: String, value: String) throws {
+        let secretKey = try getOrCreateBiometricSecuredKey()
         
         guard let eCCPublicKey = SecKeyCopyPublicKey(secretKey) else {
-            return false
+            throw Error.pubKeyCopyFailure
         }
         
-        guard let messageData = value.data(using: String.Encoding.utf8) else {
-            return false
+        guard let messageData = value.data(using: .utf8) else {
+            throw Error.dataConversionFailure
         }
+
+		var error: Unmanaged<CFError>? = nil
+        guard let encryptedData = SecKeyCreateEncryptedData(eCCPublicKey, .eciesEncryptionStandardX963SHA256AESGCM, messageData as CFData, &error) else {
+			print("pub ECC error encrypting")
+			throw Error(error: error?.autorelease().takeUnretainedValue())
+		}
         
-        guard let encryptedData = SecKeyCreateEncryptedData(
-            eCCPublicKey,
-            SecKeyAlgorithm.eciesEncryptionStandardX963SHA256AESGCM,
-            messageData as CFData,
-            error) else {
-                print("pub ECC error encrypting")
-                return false
-        }
-        
-        let queryParameters: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                              kSecAttrAccount as String: key]
-        
-        let addKeyChainAttributes: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                                 kSecAttrAccount as String: key,
-                                                 kSecValueData as String: encryptedData]
-        
+        let addKeyChainAttributes: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrAccount as String: key,
+			kSecValueData as String: encryptedData
+		]
         var status = SecItemAdd(addKeyChainAttributes as CFDictionary, nil)
-        if status == errSecDuplicateItem {
-            let updateKeyChainAttributes: [String: Any] = [kSecValueData as String: encryptedData]
-            status = SecItemUpdate(queryParameters as CFDictionary, updateKeyChainAttributes as CFDictionary)
-        }
-        
+		if status == errSecDuplicateItem {
+			let queryParameters: [String: Any] = [
+				kSecClass as String: kSecClassGenericPassword,
+				kSecAttrAccount as String: key
+			]
+			let updateKeyChainAttributes: [String: Any] = [kSecValueData as String: encryptedData]
+			status = SecItemUpdate(queryParameters as CFDictionary, updateKeyChainAttributes as CFDictionary)
+		}
         guard status == errSecSuccess || status == errSecItemNotFound else {
-            return false
+            throw Error.osStatus(status)
         }
-        
-        return true
     }
     
-    func retrieve(key: String, error: UnsafeMutablePointer<Unmanaged<CFError>?>?) -> String? {
-        guard let secretKey = self.getOrCreateBiometricSecuredKey(error: error) else {
-            return nil
-        }
+    func retrieve(key: String) throws -> String {
+        let secretKey = try getOrCreateBiometricSecuredKey()
         
         var item: CFTypeRef?
-        
-        let queryParameters: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                              kSecAttrAccount as String: key,
-                                              kSecReturnData as String: true]
-        
+        let queryParameters: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrAccount as String: key,
+			kSecReturnData as String: true
+		]
+
         let status = SecItemCopyMatching(queryParameters as CFDictionary, &item)
-        guard status == errSecSuccess else { return nil }
-        guard let decryptedData = SecKeyCreateDecryptedData(
-            secretKey,
-            SecKeyAlgorithm.eciesEncryptionStandardX963SHA256AESGCM,
-            item as! CFData,
-            error) else {
-                return nil
+        guard status == errSecSuccess else {
+			throw Error.osStatus(status)
+		}
+
+		var error: Unmanaged<CFError>? = nil
+        guard let decryptedData = SecKeyCreateDecryptedData(secretKey, .eciesEncryptionStandardX963SHA256AESGCM, item as! CFData, &error) else {
+			throw Error(error: error?.autorelease().takeUnretainedValue())
         }
         
-        return String(data:decryptedData as Data, encoding: String.Encoding.utf8)
-    }
-    
-    func delete(key: String, error: UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Bool {
-        let queryParameters: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                              kSecAttrAccount as String: key,
-                                              kSecReturnData as String: true]
-        
-        let status = SecItemDelete(queryParameters as CFDictionary)
-        
-        guard status == errSecSuccess else { return false }
-        
-        return true
-    }
-}
+		guard let result = String(data: decryptedData as Data, encoding: .utf8) else {
+			throw Error.stringConversionFailure
+		}
 
+		return result
+    }
+
+	func delete(key: String) throws {
+		let queryParameters: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrAccount as String: key,
+			kSecReturnData as String: true
+		]
+		let status = SecItemDelete(queryParameters as CFDictionary)
+
+		guard status == errSecSuccess else {
+			throw Error.osStatus(status)
+		}
+	}
+
+	enum Error: Swift.Error {
+		case unknown
+		case `internal`(Swift.Error)
+		case pubKeyCopyFailure
+		case dataConversionFailure
+		case stringConversionFailure
+		case osStatus(OSStatus)
+
+		init(error: Swift.Error?) {
+			if let error = error {
+				self = .internal(error)
+			} else {
+				self = .unknown
+			}
+		}
+	}
+}

@@ -1,3 +1,5 @@
+import Foundation
+import LocalAuthentication
 
 @objc(SecureStoragePlugin) class SecureStoragePlugin : CDVPlugin {
     
@@ -9,7 +11,7 @@
         operationQueue.name = "it.airgap.SecureStorageQueue"
     }
     
-    private func getStorageForAlias(alias: String, isParanoia: Bool) -> SecureStorage {
+    private func storage(forAlias alias: String, isParanoia: Bool) -> SecureStorage {
         let tag = ("it.airgap.keys.biometrics.key-" + alias).data(using: .utf8)!
         return SecureStorage(tag: tag, paranoiaMode: isParanoia)
     }
@@ -18,12 +20,9 @@
         operationQueue.addOperation {
             let alias = command.arguments[0] as! String
             let isParanoia = command.arguments[1] as! Bool
-            let secureStorage = self.getStorageForAlias(alias: alias, isParanoia: isParanoia)
-            self.commandDelegate!.send(
-                CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: true
-                ),
+			_ = self.storage(forAlias: alias, isParanoia: isParanoia)
+            self.commandDelegate.send(
+                CDVPluginResult(status: CDVCommandStatus_OK, messageAs: true),
                 callbackId: command.callbackId
             )
         }
@@ -31,46 +30,27 @@
     
     @objc func isDeviceSecure(_ command: CDVInvokedUrlCommand) {
         operationQueue.addOperation {
-            let secureStorage = self.getStorageForAlias(alias: "isDeviceSecure", isParanoia: false)
-            var error: UnsafeMutablePointer<Unmanaged<CFError>?>?
-            let securedKey = secureStorage.getOrCreateBiometricSecuredKey(error: error)
-            let pluginResult: CDVPluginResult
-            if (securedKey != nil) {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: true
-                )
-            } else {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: false
-                )
-            }
+			let result = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+			let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: result)
             
-            self.commandDelegate!.send(
-                pluginResult,
-                callbackId: command.callbackId
-            )
+            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
         }
     }
     
     @objc func secureDevice(_ command: CDVInvokedUrlCommand) {
         operationQueue.addOperation {
-            guard let settingsUrl = URL(string: UIApplicationOpenSettingsURLString) else {
+			guard let settingsUrl = URL(string: UIApplication.openSettingsURLString) else {
                 return
             }
     
             if UIApplication.shared.canOpenURL(settingsUrl) {
-                UIApplication.shared.open(settingsUrl, completionHandler: { (success) in
+                UIApplication.shared.open(settingsUrl) { (success) in
                     print("Settings opened: \(success)") // Prints true
-                })
+                }
             }
             
-            self.commandDelegate!.send(
-                CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: true
-                ),
+            self.commandDelegate.send(
+                CDVPluginResult(status: CDVCommandStatus_OK, messageAs: true),
                 callbackId: command.callbackId
             )
         }
@@ -80,16 +60,13 @@
         operationQueue.addOperation {
             let alias = command.arguments[0] as! String
             let isParanoia = command.arguments[1] as! Bool
-            let secureStorage = self.getStorageForAlias(alias: alias, isParanoia: isParanoia)
+            let secureStorage = self.storage(forAlias: alias, isParanoia: isParanoia)
             
-            secureStorage.dropSecuredKey()
+            _ = secureStorage.dropSecuredKey()
             
-            self.commandDelegate!.send(
-                CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: true
-                ),
-                callbackId: command.callbackId
+            self.commandDelegate.send(
+                CDVPluginResult(status: CDVCommandStatus_OK, messageAs: true),
+				callbackId: command.callbackId
             )
         }
     }
@@ -100,29 +77,17 @@
             let isParanoia = command.arguments[1] as! Bool
             let key = command.arguments[2] as! String
             
-            let secureStorage = self.getStorageForAlias(alias: alias, isParanoia: isParanoia)
-            var error: Unmanaged<CFError>?
+            let secureStorage = self.storage(forAlias: alias, isParanoia: isParanoia)
+			let pluginResult: CDVPluginResult
+			do {
+				try secureStorage.delete(key: key)
+				pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: true)
+			} catch {
+				pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR)
+				print(error)
+			}
             
-            secureStorage.delete(key: key, error: &error)
-            
-            let pluginResult: CDVPluginResult
-            
-            if (error != nil) {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_ERROR
-                )
-                print(error)
-            } else {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: true
-                )
-            }
-            
-            self.commandDelegate!.send(
-                pluginResult,
-                callbackId: command.callbackId
-            )
+            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
         }
     }
     
@@ -133,29 +98,21 @@
             let key = command.arguments[2] as! String
             let value = command.arguments[3] as! String
             
-            let secureStorage = self.getStorageForAlias(alias: alias, isParanoia: isParanoia)
-            var error: Unmanaged<CFError>?
+            let secureStorage = self.storage(forAlias: alias, isParanoia: isParanoia)
+
+			let pluginResult: CDVPluginResult
+			do {
+				try secureStorage.store(key: key, value: value)
+				pluginResult = CDVPluginResult(
+					status: CDVCommandStatus_OK,
+					messageAs: true
+				)
+			} catch {
+				pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR)
+				print(error)
+			}
             
-            secureStorage.store(key: key, value: value, error: &error)
-            
-            let pluginResult: CDVPluginResult
-            
-            if (error != nil) {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_ERROR
-                )
-                print(error)
-            } else {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: true
-                )
-            }
-            
-            self.commandDelegate!.send(
-                pluginResult,
-                callbackId: command.callbackId
-            )
+            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
         }
         
     }
@@ -165,29 +122,18 @@
             let alias = command.arguments[0] as! String
             let isParanoia = command.arguments[1] as! Bool
             let key = command.arguments[2] as! String
-            
-            var error: Unmanaged<CFError>?
-            let secureStorage = self.getStorageForAlias(alias: alias, isParanoia: isParanoia)
-            let value = secureStorage.retrieve(key: key, error: &error)
-            
-            let pluginResult: CDVPluginResult
-            
-            if (error != nil) {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_ERROR
-                )
-                print(error)
-            } else {
-                pluginResult = CDVPluginResult(
-                    status: CDVCommandStatus_OK,
-                    messageAs: value
-                )
-            }
-            
-            self.commandDelegate!.send(
-                pluginResult,
-                callbackId: command.callbackId
-            )
+
+            let secureStorage = self.storage(forAlias: alias, isParanoia: isParanoia)
+			let pluginResult: CDVPluginResult
+			do {
+				let value = try secureStorage.retrieve(key: key)
+				pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: value)
+			} catch {
+				pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR)
+				print(error)
+			}
+
+            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
         }
     }
     
