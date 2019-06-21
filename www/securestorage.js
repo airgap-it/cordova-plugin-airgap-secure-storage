@@ -63,25 +63,6 @@ SecureStorage.prototype.init = function (successCallback, errorCallback) {
 
 /**
  * 
- * @param {*} successCallback 
- * @param {*} errorCallback 
- */
-SecureStorage.prototype.setupParanoiaPassword = function (successCallback, errorCallback) {
-    this.isInitiated = true;
-    exec(successCallback, errorCallback, "SecureStorage", "setupParanoiaPassword", [this.alias, this.isParanoia]);
-}
-
-/**
- * 
- * @param {*} successCallback 
- * @param {*} errorCallback 
- */
-SecureStorage.prototype.destroy = function (successCallback, errorCallback) {
-    exec(successCallback, errorCallback, "SecureStorage", "destroy");
-}
-
-/**
- * 
  * @param {*} key
  * @param {*} item 
  * @param {*} successCallback 
@@ -130,7 +111,7 @@ SecureStorage.prototype.removeAll = function (successCallback, errorCallback) {
     if (!this.isInitiated) {
         return errorCallback("call initialize() first.")
     }
-    exec(successCallback, errorCallback, "SecureStorage", "removeAll", [this.alias]);
+    exec(successCallback, errorCallback, "SecureStorage", "removeAll", [this.alias, this.isParanoia]);
 }
 
 
