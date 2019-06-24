@@ -13,7 +13,7 @@
         </js-module>
     </platform>
 
-    <!-- -->
+    <!-- ios -->
     <platform name="ios">
       <js-module src="www/securestorage.js" name="SecureStorage">
         <runs/>
@@ -54,15 +54,5 @@
       <resource-file src="androidlibs/ch-papers-securestorage.aar" target="libs/ch-papers-securestorage.aar"/>
       <resource-file src="src/android/build-extras.gradle" target="build-extras.gradle"/>
       <source-file src="src/android/ch/airgap/securestorage/SecureStorage.java" target-dir="src/ch/airgap/securestorage/" />
-    </platform>
-
-    <platform name="ios">
-        <config-file parent="/*" target="config.xml">
-            <feature name="SecureStorage">
-                <param name="ios-package" value="SecureStorage"/>
-            </feature>
-        </config-file>
-        <source-file src="src/ios/SecureStorage.swift"/>
-        <source-file src="src/ios/SecureStoragePlugin.swift"/>
     </platform>
 </plugin>
