@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" id="cordova-plugin-airgap-secure-storage" version="0.1.7">
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" id="cordova-plugin-airgap-secure-storage" version="0.2.0">
     
     <name>AirGap Secure Storage</name>
     <description>AirGap Secure Storage securely encrypts and stores sensitive information and data on your device</description>
