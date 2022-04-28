@@ -61,7 +61,7 @@ cordova.define("airgap-secure-storage.SecureStorageProxy", function(require, exp
   }
 
   module.exports = {
-    initialize: warn(unlock),
+    initialize: warn(initialize),
     getItem: warn(getItem),
     setItem: warn(setItem),
     removeAll: warn(removeAll),
